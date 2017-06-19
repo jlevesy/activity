@@ -1,0 +1,98 @@
+version: '3'
+
+networks:
+  traefik:
+    driver: overlay
+  storage:
+    driver: overlay
+  grafana_sources:
+    driver: overlay
+  monitoring:
+    driver: overlay
+
+services:
+  lb:
+    image: traefik
+    ports:
+      - 8080:8080
+      - 80:80
+      - 443:443
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+    command: [
+      "--docker",
+      "--docker.swarmmode",
+      "--docker.domain=${DOMAIN}",
+      "--docker.watch",
+      "--web",
+      "--web.metrics.prometheus",
+      "--debug"
+    ]
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - traefik
+      - monitoring
+
+  grafana:
+    image: ${REGISTRY}/grafana
+    deploy:
+      replicas: 2
+      restart_policy:
+        delay: 30s
+        window: 20s
+        max_attempts: 3
+      placement:
+        constraints:
+          - node.role != manager
+      labels:
+        - "traefik.port=3000"
+        - "traefik.backend=grafana"
+        - "traefik.backend.loadbalancer.sticky=true"
+        - "traefik.frontend.rule=Host:grafana.${DOMAIN}"
+        - "traefik.docker.network=admin_traefik"
+    depends_on:
+      - db
+    environment:
+      - GF_DATABASE_URL=postgres://postgres:postgres@db:5432/grafana
+      - GF_SERVER_ROOT_URL=http://grafana.${DOMAIN}
+    networks:
+      - traefik
+      - grafana_sources
+      - storage
+
+  visualizer:
+    image: dockersamples/visualizer
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+      labels:
+        - "traefik.port=8080"
+        - "traefik.backend=visualizer"
+        - "traefik.frontend.rule=Host:visualizer.${DOMAIN}"
+        - "traefik.docker.network=admin_traefik"
+    networks:
+      - traefik
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  db:
+    image: postgres:9.6.3-alpine
+    deploy:
+      placement:
+        constraints:
+          - node.role != manager
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=grafana
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    networks:
+      - storage
+    user: 1000:50 # <- docker/staff on b2g, allows initdb to work on a shared folder
+    volumes:
+      - /data:/var/lib/postgresql/data
+      - /etc/passwd:/etc/passwd # <- needed by initdb to work, see https://hub.docker.com/_/postgres/ for explainations

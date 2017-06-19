@@ -1,0 +1,26 @@
+version: '3'
+
+networks:
+  traefik:
+    external:
+      name: admin_traefik
+  log_collection:
+    external:
+      name: logs_collection
+
+services:
+  dummy:
+    image: ${REGISTRY}/dummy
+    networks:
+      - traefik
+      - log_collection
+    deploy:
+      labels:
+        - "traefik.port=80"
+        - "traefik.backend=app"
+        - "traefik.frontend.rule=Host:app.${DOMAIN}"
+        - "traefik.docker.network=admin_traefik"
+      placement:
+        constraints:
+        - node.role != manager
+

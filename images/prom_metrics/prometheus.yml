@@ -1,0 +1,26 @@
+global:
+  scrape_interval: 15s
+  external_labels:
+    monitor: 'activity-metrics'
+
+scrape_configs:
+  - job_name: 'prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'github'
+    scrape_interval: 60s
+    dns_sd_configs:
+      - names:
+          - 'tasks.github_exporter'
+        type: 'A'
+        port: 9171
+
+  - job_name: 'docker-hub'
+    scrape_interval: 60s
+    dns_sd_configs:
+      - names:
+          - 'tasks.docker_hub_exporter'
+        type: 'A'
+        port: 9170

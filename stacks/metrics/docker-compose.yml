@@ -1,0 +1,57 @@
+version: '3'
+
+networks:
+  exporters:
+    driver: overlay
+  traefik:
+    external:
+      name: admin_traefik
+  grafana_sources:
+    external:
+      name: admin_grafana_sources
+
+services:
+  prometheus:
+    image: ${REGISTRY}/prom_metrics
+    command: [
+      '-config.file=/etc/prometheus/prometheus.yml',
+      '-storage.local.path=/data/prometheus_metrics',
+    ]
+    volumes:
+      - /data:/data
+    deploy:
+      restart_policy:
+        delay: 5s
+        window: 20s
+        max_attempts: 3
+      placement:
+        constraints:
+          - node.role != manager
+          # Avoid scheduling conflicts with other prom instances, don't do this in real life
+          - node.hostname == node-4
+      labels:
+        - "traefik.port=9090"
+        - "traefik.backend=metrics"
+        - "traefik.frontend.rule=Host:metrics.${DOMAIN}"
+        - "traefik.docker.network=admin_traefik"
+    depends_on:
+      - github_exporter
+      - docker_hub_exporter
+    networks:
+      - exporters
+      - traefik
+      - grafana_sources
+
+  github_exporter:
+    image: infinityworks/github-exporter
+    environment:
+      - ORGS=${GITHUB_ORGS}
+    networks:
+      - exporters
+
+  docker_hub_exporter:
+    image: infinityworks/docker-hub-exporter
+    environment:
+      - ORGS=${DOCKER_HUB_ORGS}
+    networks:
+      - exporters

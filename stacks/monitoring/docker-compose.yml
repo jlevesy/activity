@@ -1,0 +1,75 @@
+version: '3'
+
+networks:
+  traefik:
+    external:
+      name: admin_traefik
+  grafana_sources:
+    external:
+      name: admin_grafana_sources
+  monitoring:
+    external:
+      name: admin_monitoring
+
+services:
+  prometheus:
+    image: ${REGISTRY}/prom_monitoring
+    command: [
+      '-config.file=/etc/prometheus/prometheus.yml',
+      '-storage.local.path=/data/prometheus_monitoring',
+    ]
+    volumes:
+      - /data:/data
+    networks:
+      - traefik
+      - monitoring
+      - grafana_sources
+    deploy:
+      restart_policy:
+        delay: 5s
+        window: 20s
+        max_attempts: 3
+      placement:
+        constraints:
+          - node.role != manager
+      labels:
+        - "traefik.port=9090"
+        - "traefik.backend=monitoring"
+        - "traefik.frontend.rule=Host:monitoring.${DOMAIN}"
+        - "traefik.docker.network=admin_traefik"
+
+  node_exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    networks:
+      - monitoring
+    volumes:
+      - /proc:/host/proc
+      - /sys:/host/sys
+    command: [
+      "-collector.procfs=/host/proc",
+      "-collector.sysfs=/host/sys"
+    ]
+    deploy:
+      mode: global
+      resources:
+        limits:
+          memory: 32M
+        reservations:
+          memory: 32M
+
+  cadvisor:
+    image: google/cadvisor:latest
+    networks:
+      - monitoring
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    deploy:
+      mode: global
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 128M
