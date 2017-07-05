@@ -4,16 +4,16 @@ networks:
   traefik:
     external:
       name: admin_traefik
-  log_collection:
+  logs:
     external:
-      name: logs_collection
+      name: admin_logs
 
 services:
   dummy:
     image: ${REGISTRY}/dummy
     networks:
       - traefik
-      - log_collection
+      - logs
     deploy:
       labels:
         - "traefik.port=80"

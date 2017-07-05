@@ -9,6 +9,8 @@ networks:
     driver: overlay
   monitoring:
     driver: overlay
+  logs:
+    driver: overlay
 
 services:
   lb:

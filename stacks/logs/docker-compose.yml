@@ -7,55 +7,6 @@ networks:
   grafana_sources:
     external:
       name: admin_grafana_sources
-  collection:
-    driver: 'overlay'
-  elasticsearch:
-    driver: 'overlay'
-
-services:
-  logstash:
-    image: ${REGISTRY}/logstash
-    networks:
-      - elasticsearch
-      - collection
-    environment:
-      - ELASTICSEARCH_URL=elasticsearch
-      - "ES_JAVA_OPTS=-Xms256m -XX:MaxRAM=512M -Dnetworkaddress.cache.ttl=1"
-    deploy:
-      replicas: 2
-      placement:
-        constraints:
-        - node.role != manager
-
-  elasticsearch:
-    image: ${REGISTRY}/elasticsearch
-    networks:
-      - traefik
-      - grafana_sources
-      - elasticsearch
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-      nofile:
-        soft: 65536
-        hard: 65536
-    environment:
-      - ES_DATA_PATH=/data/elasticsearch
-      - "ES_JAVA_OPTS=-Xms256m -XX:MaxRAM=512M"
-    volumes:
-      - /data:/data
-    deploy:
-      labels:
-        - "traefik.port=9200"
-        - "traefik.backend=elasticsearch"
-        - "traefik.frontend.rule=Host:elasticsearch.${DOMAIN}"
-        - "traefik.docker.network=admin_traefik"
-      placement:
-        constraints:
-        - node.role != manager
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
+  logs:
+    external:
+      name: admin_logs
